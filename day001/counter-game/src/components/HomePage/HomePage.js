@@ -4,17 +4,19 @@ import "./HomePage.css";
 function HomePage() {
   const [count, setCount] = useState(0);
   const [timer, setTimer] = useState(0);
+  const isRunning = timer !== 0;
+
   useEffect(() => {
-    if (timer === 0) return;
+    if (!isRunning) return;
 
     const interval = setInterval(() => {
-      setTimer(timer - 1);
+      setTimer((prev) => prev - 1);
     }, 1000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [timer]);
+  }, [isRunning]);
 
   return (
     <div className="home-container">
