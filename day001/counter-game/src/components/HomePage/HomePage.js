@@ -5,21 +5,23 @@ const STORAGE_KEY = "counter-game-highscores";
 const DURATIONS = [5, 10, 20];
 const MAX_SCORES = 5;
 
-function emptyScores() {
-  return DURATIONS.reduce((acc, d) => ({ ...acc, [d]: [] }), {});
+// Random on-screen position (in %) for the runaway button in fun mode.
+function randomPos() {
+  return { top: 15 + Math.random() * 65, left: 5 + Math.random() * 70 };
 }
 
 function loadScores() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    const scores = emptyScores();
-    for (const d of DURATIONS) {
-      if (Array.isArray(parsed[d])) scores[d] = parsed[d];
+    const scores = {};
+    // Keep any array-valued entries (keys like "5", "10", "fun-10", ...).
+    for (const key of Object.keys(parsed)) {
+      if (Array.isArray(parsed[key])) scores[key] = parsed[key];
     }
     return scores;
   } catch {
-    return emptyScores();
+    return {};
   }
 }
 
@@ -35,10 +37,14 @@ function HomePage() {
   const [count, setCount] = useState(0);
   const [timer, setTimer] = useState(0);
   const [duration, setDuration] = useState(10);
+  const [funMode, setFunMode] = useState(false);
+  const [pos, setPos] = useState(null); // {top, left} in %, or null
   const [scores, setScores] = useState(loadScores);
   const isRunning = timer !== 0;
+  const roaming = isRunning && funMode;
+  const scoreKey = funMode ? `fun-${duration}` : `${duration}`;
   const prevTimerRef = useRef(timer);
-  const currentScores = scores[duration] ?? [];
+  const currentScores = scores[scoreKey] ?? [];
 
   useEffect(() => {
     if (!isRunning) return;
@@ -52,18 +58,18 @@ function HomePage() {
     };
   }, [isRunning]);
 
-  // Record a score under its duration when a round counts down to 0.
+  // Record a score under its mode key when a round counts down to 0.
   useEffect(() => {
     if (prevTimerRef.current === 1 && timer === 0 && count > 0) {
       setScores((prev) => ({
         ...prev,
-        [duration]: [...prev[duration], count]
+        [scoreKey]: [...(prev[scoreKey] ?? []), count]
           .sort((a, b) => b - a)
           .slice(0, MAX_SCORES),
       }));
     }
     prevTimerRef.current = timer;
-  }, [timer, count, duration]);
+  }, [timer, count, scoreKey]);
 
   // Persist the high scores whenever they change.
   useEffect(() => {
@@ -74,7 +80,9 @@ function HomePage() {
     <div className="home-container">
       <div className="home-leaderboard">
         <div className="home-leaderboard-title">High Scores</div>
-        <div className="home-leaderboard-subtitle">{duration}s</div>
+        <div className="home-leaderboard-subtitle">
+          {duration}s {funMode ? "🎯" : ""}
+        </div>
         {currentScores.length === 0 ? (
           <div className="home-leaderboard-empty">no scores yet</div>
         ) : (
@@ -90,6 +98,20 @@ function HomePage() {
       </div>
       <div className="home-timer">timer:{timer}</div>
       <div className="home-count">{count}</div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={funMode}
+        className={`home-fun-toggle ${funMode ? "is-on" : ""}`}
+        onClick={() => setFunMode((v) => !v)}
+        disabled={isRunning}
+        title="Fun mode: the click-me button runs away on every click!"
+      >
+        <span className="home-fun-toggle-label">🎯 Fun Mode</span>
+        <span className="home-fun-toggle-switch" aria-hidden="true">
+          <span className="home-fun-toggle-knob" />
+        </span>
+      </button>
       <div className="home-durations">
         {DURATIONS.map((d) => (
           <button
@@ -104,14 +126,23 @@ function HomePage() {
           </button>
         ))}
       </div>
+      {/* Invisible spacer holds the layout steady while the button roams. */}
+      {roaming && <div className="home-btn-spacer btn" aria-hidden="true" />}
       <button
-        className={`${isRunning ? "home-btn-click" : "home-btn-start"} btn`}
+        className={`${isRunning ? "home-btn-click" : "home-btn-start"} btn ${
+          roaming ? "home-btn-roaming" : ""
+        }`}
+        style={
+          roaming && pos ? { top: `${pos.top}%`, left: `${pos.left}%` } : undefined
+        }
         onClick={() => {
           if (isRunning) {
             setCount((prev) => prev + 1);
+            if (funMode) setPos(randomPos());
           } else {
             setTimer(duration);
             setCount(0);
+            setPos(funMode ? randomPos() : null);
           }
         }}
       >
@@ -122,6 +153,7 @@ function HomePage() {
         onClick={() => {
           setCount(0);
           setTimer(0);
+          setPos(null);
         }}
       >
         reset

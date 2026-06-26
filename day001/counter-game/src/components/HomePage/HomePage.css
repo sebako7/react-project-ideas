@@ -116,6 +116,74 @@
   opacity: 0.5;
 }
 
+/* fun-mode switch: just the icon + label + a sliding on/off toggle,
+   no border or fill so it reads as an additive setting, not a mode pill */
+.home-fun-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  color: white;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.home-fun-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.home-fun-toggle-label {
+  letter-spacing: 0.5px;
+}
+
+/* the sliding switch track + knob */
+.home-fun-toggle-switch {
+  position: relative;
+  width: 46px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: #3a3a3a;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.home-fun-toggle.is-on .home-fun-toggle-switch {
+  background-color: #6ee73d;
+}
+
+.home-fun-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  transition: transform 0.2s ease;
+}
+
+.home-fun-toggle.is-on .home-fun-toggle-knob {
+  transform: translateX(22px);
+}
+
+/* the runaway "click me" button in fun mode */
+.home-btn-roaming {
+  position: absolute;
+  z-index: 5;
+  transition: top 0.12s ease, left 0.12s ease;
+}
+
+/* same-size invisible placeholder so the layout doesn't shift while roaming */
+.home-btn-spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .btn {
   font-family: inherit;
   font-size: 1.5rem;
