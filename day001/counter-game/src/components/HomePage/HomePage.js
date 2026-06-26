@@ -23,21 +23,17 @@ function HomePage() {
       <div className="home-timer">timer:{timer}</div>
       <div className="home-count">{count}</div>
       <button
-        className="home-btn-start btn"
+        className={`${isRunning ? "home-btn-click" : "home-btn-start"} btn`}
         onClick={() => {
-          setTimer(10);
-          setCount(0);
+          if (isRunning) {
+            setCount((prev) => prev + 1);
+          } else {
+            setTimer(10);
+            setCount(0);
+          }
         }}
-        disabled={timer !== 0}
       >
-        start
-      </button>
-      <button
-        className="home-btn-click btn"
-        onClick={() => setCount(count + 1)}
-        disabled={timer === 0}
-      >
-        click me
+        {isRunning ? "click me" : "start"}
       </button>
       <button
         className="home-btn-reset btn"
