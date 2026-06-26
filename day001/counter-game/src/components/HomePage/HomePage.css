@@ -87,6 +87,12 @@
   background-color: #e7da3d;
 }
 
+/* post-round cooldown: dim the start button so the lock is obvious */
+.home-btn-start:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .home-btn-click {
   background-color: #3dd1e7;
 }
@@ -182,6 +188,120 @@
 .home-btn-spacer {
   visibility: hidden;
   pointer-events: none;
+}
+
+/* ---- new first-place high-score celebration ---- */
+
+/* full-screen overlay that never blocks clicks */
+.home-celebration {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-celebration-banner {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  padding: 16px 32px;
+  background-color: #141414;
+  border: 3px solid #e7da3d;
+  border-radius: 14px;
+  color: #e7da3d;
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0 30px rgba(231, 218, 61, 0.6);
+  animation: celebrate-pop 2.6s ease forwards;
+}
+
+@keyframes celebrate-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3) rotate(-8deg);
+    opacity: 0;
+  }
+  12% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(3deg);
+    opacity: 1;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  80% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.home-confetti {
+  position: absolute;
+  top: -40px;
+  font-size: 1.8rem;
+  animation: confetti-fall 2.6s linear forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-40px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+/* pulse the leaderboard's #1 entry while celebrating */
+.home-leaderboard-list li.is-new {
+  border-radius: 4px;
+  animation: score-glow 0.6s ease-in-out 3;
+}
+
+@keyframes score-glow {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(231, 218, 61, 0.35);
+  }
+}
+
+/* keep the moment for people who opt out of motion: no flying confetti, no
+   bounce — just a clean fade */
+@media (prefers-reduced-motion: reduce) {
+  .home-celebration-banner {
+    transform: translate(-50%, -50%);
+    animation: celebrate-fade 2.6s ease forwards;
+  }
+  .home-confetti {
+    display: none;
+  }
+  .home-leaderboard-list li.is-new {
+    animation: none;
+    background-color: rgba(231, 218, 61, 0.25);
+  }
+}
+
+@keyframes celebrate-fade {
+  0%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .btn {

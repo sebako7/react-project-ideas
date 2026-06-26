@@ -4,6 +4,10 @@ import "./HomePage.css";
 const STORAGE_KEY = "counter-game-highscores";
 const DURATIONS = [5, 10, 20];
 const MAX_SCORES = 5;
+const COOLDOWN_MS = 3000; // start button stays locked this long after a round
+
+// Emoji rain shown when a new first-place high score is set.
+const CONFETTI = ["🎉", "🎊", "⭐", "🏆", "✨", "🥳", "💥", "🎉", "⭐", "✨", "🎊", "🥳"];
 
 // Random on-screen position (in %) for the runaway button in fun mode.
 export function randomPos() {
@@ -19,6 +23,13 @@ export function recordScore(scores, key, count, max) {
       .sort((a, b) => b - a)
       .slice(0, max),
   };
+}
+
+// True when `count` would take the very top of the `key` leaderboard, i.e. it
+// strictly beats the current best (or there is no score for that key yet).
+// Ties do not count as a new record.
+export function isNewTopScore(scores, key, count) {
+  return count > 0 && count > ((scores[key] ?? [])[0] ?? -Infinity);
 }
 
 export function loadScores() {
@@ -51,6 +62,8 @@ function HomePage() {
   const [funMode, setFunMode] = useState(false);
   const [pos, setPos] = useState(null); // {top, left} in %, or null
   const [scores, setScores] = useState(loadScores);
+  const [celebrating, setCelebrating] = useState(false); // new-#1 animation
+  const [cooldown, setCooldown] = useState(false); // start locked after a round
   const isRunning = timer !== 0;
   const roaming = isRunning && funMode;
   const scoreKey = funMode ? `fun-${duration}` : `${duration}`;
@@ -69,13 +82,35 @@ function HomePage() {
     };
   }, [isRunning]);
 
-  // Record a score under its mode key when a round counts down to 0.
+  // Record a score under its mode key when a round counts down to 0. At the
+  // 1 -> 0 edge `scores` still holds the pre-insertion leaderboard, so it is
+  // the right thing to compare against for a new first-place record.
   useEffect(() => {
-    if (prevTimerRef.current === 1 && timer === 0 && count > 0) {
-      setScores((prev) => recordScore(prev, scoreKey, count, MAX_SCORES));
+    if (prevTimerRef.current === 1 && timer === 0) {
+      // The round ran out of time (not a manual reset). Lock the start button
+      // briefly so clicks still in flight don't immediately kick off a new round.
+      setCooldown(true);
+      if (count > 0) {
+        if (isNewTopScore(scores, scoreKey, count)) setCelebrating(true);
+        setScores((prev) => recordScore(prev, scoreKey, count, MAX_SCORES));
+      }
     }
     prevTimerRef.current = timer;
-  }, [timer, count, scoreKey]);
+  }, [timer, count, scoreKey, scores]);
+
+  // Auto-dismiss the celebration once it has played through.
+  useEffect(() => {
+    if (!celebrating) return;
+    const t = setTimeout(() => setCelebrating(false), 2600);
+    return () => clearTimeout(t);
+  }, [celebrating]);
+
+  // Re-enable the start button once the post-round cooldown elapses.
+  useEffect(() => {
+    if (!cooldown) return;
+    const t = setTimeout(() => setCooldown(false), COOLDOWN_MS);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   // Persist the high scores whenever they change.
   useEffect(() => {
@@ -84,6 +119,24 @@ function HomePage() {
 
   return (
     <div className="home-container">
+      {celebrating && (
+        <div className="home-celebration" aria-live="polite">
+          {CONFETTI.map((emoji, i) => (
+            <span
+              key={i}
+              className="home-confetti"
+              style={{
+                left: `${(i + 0.5) * (100 / CONFETTI.length)}%`,
+                animationDelay: `${i * 0.12}s`,
+              }}
+              aria-hidden="true"
+            >
+              {emoji}
+            </span>
+          ))}
+          <div className="home-celebration-banner">🏆 New High Score! 🏆</div>
+        </div>
+      )}
       <div className="home-leaderboard">
         <div className="home-leaderboard-title">High Scores</div>
         <div className="home-leaderboard-subtitle">
@@ -94,7 +147,7 @@ function HomePage() {
         ) : (
           <ol className="home-leaderboard-list">
             {currentScores.map((score, i) => (
-              <li key={i}>
+              <li key={i} className={celebrating && i === 0 ? "is-new" : ""}>
                 <span className="home-leaderboard-rank">{i + 1}.</span>
                 <span className="home-leaderboard-score">{score}</span>
               </li>
@@ -138,6 +191,10 @@ function HomePage() {
         className={`${isRunning ? "home-btn-click" : "home-btn-start"} btn ${
           roaming ? "home-btn-roaming" : ""
         }`}
+        disabled={!isRunning && cooldown}
+        title={
+          !isRunning && cooldown ? "hold on a sec…" : undefined
+        }
         style={
           roaming && pos ? { top: `${pos.top}%`, left: `${pos.left}%` } : undefined
         }
@@ -149,6 +206,7 @@ function HomePage() {
             setTimer(duration);
             setCount(0);
             setPos(funMode ? randomPos() : null);
+            setCelebrating(false);
           }
         }}
       >
@@ -160,6 +218,8 @@ function HomePage() {
           setCount(0);
           setTimer(0);
           setPos(null);
+          setCelebrating(false);
+          setCooldown(false);
         }}
       >
         reset

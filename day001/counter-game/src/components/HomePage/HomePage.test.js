@@ -1,7 +1,12 @@
 import React from "react";
 import { render, screen, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import HomePage, { randomPos, recordScore, loadScores } from "./HomePage";
+import HomePage, {
+  randomPos,
+  recordScore,
+  loadScores,
+  isNewTopScore,
+} from "./HomePage";
 
 const STORAGE_KEY = "counter-game-highscores";
 
@@ -91,6 +96,33 @@ describe("recordScore", () => {
   });
 });
 
+describe("isNewTopScore", () => {
+  it("is true for the first score under a key", () => {
+    expect(isNewTopScore({}, "10", 1)).toBe(true);
+    expect(isNewTopScore({ "10": [] }, "10", 1)).toBe(true);
+  });
+
+  it("is true when the count strictly beats the current best", () => {
+    expect(isNewTopScore({ "10": [9, 4] }, "10", 10)).toBe(true);
+  });
+
+  it("is false when the count ties the current best", () => {
+    expect(isNewTopScore({ "10": [9, 4] }, "10", 9)).toBe(false);
+  });
+
+  it("is false when the count does not beat the current best", () => {
+    expect(isNewTopScore({ "10": [9, 4] }, "10", 5)).toBe(false);
+  });
+
+  it("is false for a non-positive count", () => {
+    expect(isNewTopScore({}, "10", 0)).toBe(false);
+  });
+
+  it("compares only against the matching key", () => {
+    expect(isNewTopScore({ "10": [50] }, "fun-10", 3)).toBe(true);
+  });
+});
+
 describe("loadScores", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -149,7 +181,15 @@ describe("HomePage component", () => {
   // Click the main button `clicks` times, then let the round time out.
   function playRound({ duration, clicks }) {
     // The main start/click button is the one labelled "start" while idle.
-    const startBtn = screen.getByRole("button", { name: "start" });
+    let startBtn = screen.getByRole("button", { name: "start" });
+    // After a previous round the start button is locked for a cooldown; wait it
+    // out so a fresh round can begin.
+    if (startBtn.disabled) {
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      startBtn = screen.getByRole("button", { name: "start" });
+    }
     click(startBtn); // timer = duration, count = 0, label -> "click me"
 
     const clickBtn = screen.getByRole("button", { name: "click me" });
@@ -227,6 +267,59 @@ describe("HomePage component", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe(
       JSON.stringify({}) // saveScores persisted the (empty) scores object
     );
+  });
+
+  it("celebrates when a round sets a new first-place high score", () => {
+    render(<HomePage />);
+
+    // First score of the session is, by definition, a new #1.
+    playRound({ duration: 10, clicks: 3 });
+
+    expect(
+      screen.getByText(/new high score/i)
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT celebrate a round that fails to beat the current best", () => {
+    render(<HomePage />);
+
+    playRound({ duration: 10, clicks: 5 }); // sets the record
+    playRound({ duration: 10, clicks: 3 }); // doesn't beat it
+
+    expect(screen.queryByText(/new high score/i)).not.toBeInTheDocument();
+  });
+
+  it("locks the start button for a cooldown after a round ends, then re-enables it", () => {
+    render(<HomePage />);
+
+    playRound({ duration: 10, clicks: 2 });
+
+    // Immediately after the round the start button is disabled...
+    expect(screen.getByRole("button", { name: "start" })).toBeDisabled();
+
+    // ...and comes back after the cooldown elapses.
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(screen.getByRole("button", { name: "start" })).toBeEnabled();
+  });
+
+  it("applies the cooldown even when the round scored zero", () => {
+    render(<HomePage />);
+
+    playRound({ duration: 10, clicks: 0 });
+
+    expect(screen.getByRole("button", { name: "start" })).toBeDisabled();
+  });
+
+  it("clears the cooldown immediately when reset is pressed", () => {
+    render(<HomePage />);
+
+    playRound({ duration: 10, clicks: 2 });
+    expect(screen.getByRole("button", { name: "start" })).toBeDisabled();
+
+    click(screen.getByRole("button", { name: "reset" }));
+    expect(screen.getByRole("button", { name: "start" })).toBeEnabled();
   });
 
   it("stores fun-mode scores under a separate key without polluting the normal list", () => {
