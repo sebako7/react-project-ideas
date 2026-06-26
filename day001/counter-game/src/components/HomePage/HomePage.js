@@ -2,14 +2,24 @@ import React, { useEffect, useRef, useState } from "react";
 import "./HomePage.css";
 
 const STORAGE_KEY = "counter-game-highscores";
+const DURATIONS = [5, 10, 20];
 const MAX_SCORES = 5;
+
+function emptyScores() {
+  return DURATIONS.reduce((acc, d) => ({ ...acc, [d]: [] }), {});
+}
 
 function loadScores() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : {};
+    const scores = emptyScores();
+    for (const d of DURATIONS) {
+      if (Array.isArray(parsed[d])) scores[d] = parsed[d];
+    }
+    return scores;
   } catch {
-    return [];
+    return emptyScores();
   }
 }
 
@@ -24,9 +34,11 @@ function saveScores(scores) {
 function HomePage() {
   const [count, setCount] = useState(0);
   const [timer, setTimer] = useState(0);
+  const [duration, setDuration] = useState(10);
   const [scores, setScores] = useState(loadScores);
   const isRunning = timer !== 0;
   const prevTimerRef = useRef(timer);
+  const currentScores = scores[duration] ?? [];
 
   useEffect(() => {
     if (!isRunning) return;
@@ -40,15 +52,18 @@ function HomePage() {
     };
   }, [isRunning]);
 
-  // Record a score when a round counts all the way down to 0.
+  // Record a score under its duration when a round counts down to 0.
   useEffect(() => {
     if (prevTimerRef.current === 1 && timer === 0 && count > 0) {
-      setScores((prev) =>
-        [...prev, count].sort((a, b) => b - a).slice(0, MAX_SCORES)
-      );
+      setScores((prev) => ({
+        ...prev,
+        [duration]: [...prev[duration], count]
+          .sort((a, b) => b - a)
+          .slice(0, MAX_SCORES),
+      }));
     }
     prevTimerRef.current = timer;
-  }, [timer, count]);
+  }, [timer, count, duration]);
 
   // Persist the high scores whenever they change.
   useEffect(() => {
@@ -59,11 +74,12 @@ function HomePage() {
     <div className="home-container">
       <div className="home-leaderboard">
         <div className="home-leaderboard-title">High Scores</div>
-        {scores.length === 0 ? (
+        <div className="home-leaderboard-subtitle">{duration}s</div>
+        {currentScores.length === 0 ? (
           <div className="home-leaderboard-empty">no scores yet</div>
         ) : (
           <ol className="home-leaderboard-list">
-            {scores.map((score, i) => (
+            {currentScores.map((score, i) => (
               <li key={i}>
                 <span className="home-leaderboard-rank">{i + 1}.</span>
                 <span className="home-leaderboard-score">{score}</span>
@@ -74,13 +90,27 @@ function HomePage() {
       </div>
       <div className="home-timer">timer:{timer}</div>
       <div className="home-count">{count}</div>
+      <div className="home-durations">
+        {DURATIONS.map((d) => (
+          <button
+            key={d}
+            className={`home-btn-duration btn ${
+              d === duration ? "is-active" : ""
+            }`}
+            onClick={() => setDuration(d)}
+            disabled={isRunning}
+          >
+            {d}s
+          </button>
+        ))}
+      </div>
       <button
         className={`${isRunning ? "home-btn-click" : "home-btn-start"} btn`}
         onClick={() => {
           if (isRunning) {
             setCount((prev) => prev + 1);
           } else {
-            setTimer(10);
+            setTimer(duration);
             setCount(0);
           }
         }}
