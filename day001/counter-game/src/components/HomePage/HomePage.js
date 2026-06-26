@@ -6,11 +6,22 @@ const DURATIONS = [5, 10, 20];
 const MAX_SCORES = 5;
 
 // Random on-screen position (in %) for the runaway button in fun mode.
-function randomPos() {
+export function randomPos() {
   return { top: 15 + Math.random() * 65, left: 5 + Math.random() * 70 };
 }
 
-function loadScores() {
+// Insert `count` into the score list at `key`, keep it sorted descending and
+// capped at `max`. Returns a new scores object (pure; does not mutate input).
+export function recordScore(scores, key, count, max) {
+  return {
+    ...scores,
+    [key]: [...(scores[key] ?? []), count]
+      .sort((a, b) => b - a)
+      .slice(0, max),
+  };
+}
+
+export function loadScores() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
@@ -61,12 +72,7 @@ function HomePage() {
   // Record a score under its mode key when a round counts down to 0.
   useEffect(() => {
     if (prevTimerRef.current === 1 && timer === 0 && count > 0) {
-      setScores((prev) => ({
-        ...prev,
-        [scoreKey]: [...(prev[scoreKey] ?? []), count]
-          .sort((a, b) => b - a)
-          .slice(0, MAX_SCORES),
-      }));
+      setScores((prev) => recordScore(prev, scoreKey, count, MAX_SCORES));
     }
     prevTimerRef.current = timer;
   }, [timer, count, scoreKey]);
